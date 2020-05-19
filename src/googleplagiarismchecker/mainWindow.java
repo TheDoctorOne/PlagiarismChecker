@@ -17,6 +17,7 @@ import java.net.URLConnection;
 import java.net.URLEncoder;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.swing.JOptionPane;
 import javax.swing.table.DefaultTableModel;
 
 /**
@@ -32,6 +33,7 @@ public class mainWindow extends javax.swing.JFrame {
      */
     public mainWindow() {
         initComponents();
+        setTitle("Check Plagiarism");
     }
 
     /**
@@ -218,7 +220,6 @@ public class mainWindow extends javax.swing.JFrame {
         int sentenceSize = 0;
         int notUniqueSize = 0;
         
-        try {
             
             String inputLine;
             String[] sentences = allData.trim().split("\\.");
@@ -227,24 +228,55 @@ public class mainWindow extends javax.swing.JFrame {
                 if(s.trim().equals("") || s.trim().length() < 5)
                     continue;
                 String key= "\"" + s.trim() + "\"";
-                String query = String.format("%s",URLEncoder.encode(key, charset));
-                URLConnection con = new URL(url+ query).openConnection();
+                String query = null;
+            try {
+                query = String.format("%s",URLEncoder.encode(key, charset));
+            } catch (UnsupportedEncodingException ex) {
+                Logger.getLogger(mainWindow.class.getName()).log(Level.SEVERE, null, ex);
+            }
+                URLConnection con = null;
+            try {
+                con = new URL(url+ query).openConnection();
+            } catch (IOException ex) {
+                Logger.getLogger(mainWindow.class.getName()).log(Level.SEVERE, null, ex);
+            }
                 con.setRequestProperty("User-Agent", "Mozilla/5.0 (Macintosh; U; Intel Mac OS X 10.4; en-US; rv:1.9.2.2) Gecko/20100316 Firefox/3.6.2");
-                BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream()));
+                BufferedReader in = null;
+                while(in==null)
+                    try {
+                        in = new BufferedReader(new InputStreamReader(con.getInputStream()));
+                    } catch (IOException ex) {
+                        Logger.getLogger(mainWindow.class.getName()).log(Level.SEVERE, null, ex);
+                        JOptionPane.showMessageDialog(this, "Too many Requests has been sent to Google\nTry again later at least an hour required.", "429 Too Many Requests", JOptionPane.OK_OPTION);
+                        try {
+                            
+                            Thread.sleep(100000);
+                        } catch (InterruptedException ex1) {
+                            Logger.getLogger(mainWindow.class.getName()).log(Level.SEVERE, null, ex1);
+                        }
+                    }
                 StringBuilder resultPage = new StringBuilder(); 
+            try {
                 while ((inputLine = in.readLine()) != null) {
                     /*if(inputLine.contains("No results found for")) {
-                        String toReplace = "No results found for <b>" + key + "</b>.";
-                        inputLine = inputLine.replaceAll(toReplace,"");
+                    String toReplace = "No results found for <b>" + key + "</b>.";
+                    inputLine = inputLine.replaceAll(toReplace,"");
                     }
                     String withoutQuotes = "<b>" + s.trim() + "</b></a> (without quotes):";
                     if(inputLine.contains(withoutQuotes)) {
-                        inputLine = inputLine.replaceAll(withoutQuotes,"");
+                    inputLine = inputLine.replaceAll(withoutQuotes,"");
                     }*/
                     resultPage.append(inputLine);
                 }
+            } catch (IOException ex) {
+                Logger.getLogger(mainWindow.class.getName()).log(Level.SEVERE, null, ex);
+            }
                 String results = resultPage.toString();
+            try {
                 in.close();
+            } catch (IOException ex) {
+                Logger.getLogger(mainWindow.class.getName()).log(Level.SEVERE, null, ex);
+            }
                 int matches = countMatches(results, s.trim());
                 System.out.println(s.trim());
                 System.out.println("1:" + matches);
@@ -275,13 +307,7 @@ public class mainWindow extends javax.swing.JFrame {
                 ((DefaultTableModel) plaTable.getModel()).addRow(new Object[]{s.trim(), isUnique + ""});
                 plaLabel.setText("Plagiarism: " +  notUniqueSize + "/" + sentenceSize);
             }
-        } catch (UnsupportedEncodingException ex) {
-            Logger.getLogger(mainWindow.class.getName()).log(Level.SEVERE, null, ex);
-        } catch (MalformedURLException ex) {
-            Logger.getLogger(mainWindow.class.getName()).log(Level.SEVERE, null, ex);
-        } catch (IOException ex) {
-            Logger.getLogger(mainWindow.class.getName()).log(Level.SEVERE, null, ex);
-        }
+        
     }
     
     /**
